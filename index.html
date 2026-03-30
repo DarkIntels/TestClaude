@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Puissance 4</title>
     <style>
+        :root {
+            --cell-size: 64px;
+            --gap: 8px;
+            --padding: 18px;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -53,14 +59,14 @@
 
         #column-hover {
             display: flex;
-            gap: 8px;
-            padding: 0 18px;
-            height: 50px;
+            gap: var(--gap);
+            padding: 0 var(--padding);
+            height: 40px;
             align-items: center;
         }
 
         .hover-cell {
-            width: 64px;
+            width: var(--cell-size);
             height: 40px;
             display: flex;
             align-items: center;
@@ -68,8 +74,8 @@
         }
 
         .hover-piece {
-            width: 30px;
-            height: 30px;
+            width: calc(var(--cell-size) * 0.47);
+            height: calc(var(--cell-size) * 0.47);
             border-radius: 50%;
             opacity: 0;
             transition: opacity 0.15s;
@@ -82,17 +88,17 @@
         #board {
             background: #1a5276;
             border-radius: 12px;
-            padding: 18px;
+            padding: var(--padding);
             display: grid;
-            grid-template-columns: repeat(7, 64px);
-            grid-template-rows: repeat(6, 64px);
-            gap: 8px;
+            grid-template-columns: repeat(7, var(--cell-size));
+            grid-template-rows: repeat(6, var(--cell-size));
+            gap: var(--gap);
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 2px 4px rgba(255, 255, 255, 0.1);
         }
 
         .cell {
-            width: 64px;
-            height: 64px;
+            width: var(--cell-size);
+            height: var(--cell-size);
             background: #0f3460;
             border-radius: 50%;
             cursor: pointer;
@@ -182,6 +188,19 @@
             display: flex;
             align-items: center;
             gap: 8px;
+        }
+        @media (max-width: 520px) {
+            :root {
+                --cell-size: calc((100vw - 80px) / 7);
+                --gap: 5px;
+                --padding: 12px;
+            }
+
+            h1 { font-size: 1.6rem; }
+            #status { font-size: 1rem; margin-bottom: 12px; }
+            #controls { flex-direction: column; gap: 10px; }
+            button { padding: 10px 20px; font-size: 0.9rem; }
+            #score { font-size: 0.95rem; gap: 20px; }
         }
     </style>
 </head>
