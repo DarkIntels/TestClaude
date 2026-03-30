@@ -331,7 +331,7 @@
         <div class="modal">
             <h2>Jouer en ligne</h2>
             <div class="btn-row" id="modal-choice">
-                <button class="create-btn" id="create-room-btn">Cr\u00e9er une partie</button>
+                <button class="create-btn" id="create-room-btn">Créer une partie</button>
                 <button class="join-btn" id="join-room-btn">Rejoindre</button>
             </div>
             <div id="create-section" style="display:none">
@@ -450,7 +450,7 @@
                     updateScores();
                     const name = currentPlayer === RED ? 'Rouge' : 'Jaune';
                     if (onlineMode) {
-                        statusText.textContent = currentPlayer === myColor ? 'Tu as gagn\u00e9 !' : 'Tu as perdu !';
+                        statusText.textContent = currentPlayer === myColor ? 'Tu as gagné !' : 'Tu as perdu !';
                     } else {
                         statusText.textContent = `${name} gagne !`;
                     }
@@ -682,7 +682,7 @@
                 }
             });
             conn.on('close', () => {
-                onlineStatusEl.textContent = 'Adversaire d\u00e9connect\u00e9';
+                onlineStatusEl.textContent = 'Adversaire déconnecté';
                 onlineStatusEl.style.color = '#e74c3c';
                 conn = null;
             });
@@ -695,7 +695,7 @@
             aiBtn.style.display = 'none';
             onlineStatusEl.style.display = 'block';
             onlineStatusEl.style.color = '#2ecc71';
-            onlineStatusEl.textContent = `Connect\u00e9 ! Tu es ${color === RED ? 'Rouge' : 'Jaune'}`;
+            onlineStatusEl.textContent = `Connecté ! Tu es ${color === RED ? 'Rouge' : 'Jaune'}`;
             scores = { [RED]: 0, [YELLOW]: 0 };
             updateScores();
             init();
@@ -806,7 +806,7 @@
             });
 
             peer.on('error', (err) => {
-                joinInfo.textContent = 'Erreur : partie introuvable ou expir\u00e9e';
+                joinInfo.textContent = 'Erreur : partie introuvable ou expirée';
                 joinInfo.style.color = '#e74c3c';
             });
         });
@@ -817,7 +817,7 @@
 
         roomCodeDisplay.addEventListener('click', () => {
             navigator.clipboard.writeText(roomCodeDisplay.textContent);
-            roomInfo.textContent = 'Code copi\u00e9 !';
+            roomInfo.textContent = 'Code copié !';
             setTimeout(() => { roomInfo.textContent = 'En attente d\'un adversaire...'; }, 1500);
         });
 
@@ -832,7 +832,7 @@
 
         aiBtn.addEventListener('click', () => {
             vsAI = !vsAI;
-            aiBtn.textContent = vsAI ? 'Jouer \u00e0 2 joueurs' : "Jouer contre l'IA";
+            aiBtn.textContent = vsAI ? 'Jouer à 2 joueurs' : "Jouer contre l'IA";
             aiBtn.classList.toggle('active', vsAI);
             init();
         });
