@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Puissance 4</title>
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <style>
         :root {
             --cell-size: 64px;
@@ -141,7 +142,9 @@
         #controls {
             margin-top: 25px;
             display: flex;
-            gap: 15px;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
         }
 
         button {
@@ -177,6 +180,11 @@
             background: #e74c3c;
         }
 
+        #online-btn {
+            background: #3498db;
+            color: #fff;
+        }
+
         #score {
             margin-top: 15px;
             font-size: 1.1rem;
@@ -189,6 +197,99 @@
             align-items: center;
             gap: 8px;
         }
+
+        /* --- Online modal --- */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.7);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-overlay.visible {
+            display: flex;
+        }
+
+        .modal {
+            background: #1a2744;
+            border-radius: 16px;
+            padding: 30px;
+            max-width: 380px;
+            width: 90%;
+            text-align: center;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+        }
+
+        .modal h2 {
+            margin-bottom: 20px;
+            font-size: 1.4rem;
+        }
+
+        .modal input {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: 2px solid #3498db;
+            background: #0f1e36;
+            color: #fff;
+            font-size: 1.1rem;
+            text-align: center;
+            margin-bottom: 15px;
+            outline: none;
+        }
+
+        .modal input:focus {
+            border-color: #2ecc71;
+        }
+
+        .modal .btn-row {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .modal button {
+            padding: 10px 22px;
+            font-size: 0.95rem;
+        }
+
+        .modal .create-btn { background: #2ecc71; color: #fff; }
+        .modal .join-btn { background: #3498db; color: #fff; }
+        .modal .close-btn { background: #7f8c8d; color: #fff; }
+
+        #room-info {
+            margin-top: 12px;
+            font-size: 0.95rem;
+            color: #aaa;
+            min-height: 24px;
+        }
+
+        #room-code-display {
+            background: #0f1e36;
+            border: 2px dashed #3498db;
+            border-radius: 8px;
+            padding: 12px;
+            margin: 12px 0;
+            font-size: 1.4rem;
+            font-weight: bold;
+            letter-spacing: 4px;
+            color: #3498db;
+            user-select: all;
+            cursor: pointer;
+            display: none;
+        }
+
+        #online-status {
+            display: none;
+            margin-top: 8px;
+            font-size: 0.9rem;
+            color: #2ecc71;
+        }
+
         @media (max-width: 520px) {
             :root {
                 --cell-size: calc((100vw - 80px) / 7);
@@ -198,7 +299,7 @@
 
             h1 { font-size: 1.6rem; }
             #status { font-size: 1rem; margin-bottom: 12px; }
-            #controls { flex-direction: column; gap: 10px; }
+            #controls { flex-direction: column; gap: 10px; align-items: center; }
             button { padding: 10px 20px; font-size: 0.9rem; }
             #score { font-size: 0.95rem; gap: 20px; }
         }
@@ -217,10 +318,39 @@
     <div id="controls">
         <button id="restart-btn">Nouvelle partie</button>
         <button id="ai-btn">Jouer contre l'IA</button>
+        <button id="online-btn">En ligne</button>
     </div>
+    <div id="online-status"></div>
     <div id="score">
         <div class="score-item"><span class="status-dot red"></span> Rouge : <strong id="score-red">0</strong></div>
         <div class="score-item"><span class="status-dot yellow"></span> Jaune : <strong id="score-yellow">0</strong></div>
+    </div>
+
+    <!-- Online modal -->
+    <div class="modal-overlay" id="online-modal">
+        <div class="modal">
+            <h2>Jouer en ligne</h2>
+            <div class="btn-row" id="modal-choice">
+                <button class="create-btn" id="create-room-btn">Cr\u00e9er une partie</button>
+                <button class="join-btn" id="join-room-btn">Rejoindre</button>
+            </div>
+            <div id="create-section" style="display:none">
+                <p>Partage ce code avec ton ami :</p>
+                <div id="room-code-display"></div>
+                <p id="room-info">En attente d'un adversaire...</p>
+            </div>
+            <div id="join-section" style="display:none">
+                <p style="margin-bottom:12px">Entre le code de la partie :</p>
+                <input type="text" id="join-code-input" placeholder="Code de la partie" maxlength="10" autocomplete="off" autocapitalize="characters">
+                <div class="btn-row">
+                    <button class="join-btn" id="connect-btn">Rejoindre</button>
+                </div>
+                <p id="join-info" style="margin-top:12px;color:#aaa;min-height:24px"></p>
+            </div>
+            <div style="margin-top:18px">
+                <button class="close-btn" id="close-modal-btn">Fermer</button>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -237,11 +367,18 @@
         let scores = { [RED]: 0, [YELLOW]: 0 };
         let animating = false;
 
+        // Online state
+        let onlineMode = false;
+        let myColor = null;
+        let peer = null;
+        let conn = null;
+
         const boardEl = document.getElementById('board');
         const statusText = document.getElementById('status-text');
         const statusDot = document.querySelector('#status .status-dot');
         const hoverEl = document.getElementById('column-hover');
         const aiBtn = document.getElementById('ai-btn');
+        const onlineStatusEl = document.getElementById('online-status');
 
         function init() {
             board = Array.from({ length: ROWS }, () => Array(COLS).fill(EMPTY));
@@ -284,12 +421,17 @@
         function handleClick(col) {
             if (gameOver || animating) return;
             if (vsAI && currentPlayer === YELLOW) return;
-            dropPiece(col);
+            if (onlineMode && currentPlayer !== myColor) return;
+            dropPiece(col, true);
         }
 
-        function dropPiece(col) {
+        function dropPiece(col, isLocal) {
             const row = getAvailableRow(col);
             if (row === -1) return;
+
+            if (isLocal && onlineMode && conn) {
+                conn.send({ type: 'move', col: col });
+            }
 
             animating = true;
             board[row][col] = currentPlayer;
@@ -306,7 +448,12 @@
                     highlightWin(winCells);
                     scores[currentPlayer]++;
                     updateScores();
-                    statusText.textContent = `${currentPlayer === RED ? 'Rouge' : 'Jaune'} gagne !`;
+                    const name = currentPlayer === RED ? 'Rouge' : 'Jaune';
+                    if (onlineMode) {
+                        statusText.textContent = currentPlayer === myColor ? 'Tu as gagn\u00e9 !' : 'Tu as perdu !';
+                    } else {
+                        statusText.textContent = `${name} gagne !`;
+                    }
                     return;
                 }
                 if (checkDraw()) {
@@ -367,9 +514,15 @@
         }
 
         function updateStatus() {
-            const name = currentPlayer === RED ? 'Rouge' : 'Jaune';
+            if (onlineMode) {
+                const isMyTurn = currentPlayer === myColor;
+                const colorName = currentPlayer === RED ? 'Rouge' : 'Jaune';
+                statusText.textContent = isMyTurn ? `Ton tour (${colorName})` : `Tour de l'adversaire (${colorName})`;
+            } else {
+                const name = currentPlayer === RED ? 'Rouge' : 'Jaune';
+                statusText.textContent = `Tour du Joueur ${name}`;
+            }
             const dotClass = currentPlayer === RED ? 'red' : 'yellow';
-            statusText.textContent = `Tour du Joueur ${name}`;
             statusDot.className = `status-dot ${dotClass}`;
         }
 
@@ -382,7 +535,7 @@
 
         function aiMove() {
             const bestCol = getBestMove();
-            dropPiece(bestCol);
+            dropPiece(bestCol, false);
         }
 
         function getBestMove() {
@@ -470,12 +623,10 @@
 
         function heuristic() {
             let score = 0;
-            // Center column preference
             for (let r = 0; r < ROWS; r++) {
                 if (board[r][3] === YELLOW) score += 3;
                 else if (board[r][3] === RED) score -= 3;
             }
-            // Evaluate all windows of 4
             const lines = getAllWindows();
             for (const win of lines) {
                 score += evaluateWindow(win);
@@ -485,19 +636,15 @@
 
         function getAllWindows() {
             const windows = [];
-            // Horizontal
             for (let r = 0; r < ROWS; r++)
                 for (let c = 0; c <= COLS - 4; c++)
                     windows.push([board[r][c], board[r][c+1], board[r][c+2], board[r][c+3]]);
-            // Vertical
             for (let c = 0; c < COLS; c++)
                 for (let r = 0; r <= ROWS - 4; r++)
                     windows.push([board[r][c], board[r+1][c], board[r+2][c], board[r+3][c]]);
-            // Diagonal down-right
             for (let r = 0; r <= ROWS - 4; r++)
                 for (let c = 0; c <= COLS - 4; c++)
                     windows.push([board[r][c], board[r+1][c+1], board[r+2][c+2], board[r+3][c+3]]);
-            // Diagonal down-left
             for (let r = 0; r <= ROWS - 4; r++)
                 for (let c = 3; c < COLS; c++)
                     windows.push([board[r][c], board[r+1][c-1], board[r+2][c-2], board[r+3][c-3]]);
@@ -516,9 +663,172 @@
             return 0;
         }
 
+        // --- Online multiplayer (PeerJS) ---
+
+        function generateRoomCode() {
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+            let code = '';
+            for (let i = 0; i < 5; i++) code += chars[Math.floor(Math.random() * chars.length)];
+            return code;
+        }
+
+        function setupConnection(connection) {
+            conn = connection;
+            conn.on('data', (data) => {
+                if (data.type === 'move') {
+                    dropPiece(data.col, false);
+                } else if (data.type === 'restart') {
+                    init();
+                }
+            });
+            conn.on('close', () => {
+                onlineStatusEl.textContent = 'Adversaire d\u00e9connect\u00e9';
+                onlineStatusEl.style.color = '#e74c3c';
+                conn = null;
+            });
+        }
+
+        function enterOnlineMode(color) {
+            onlineMode = true;
+            vsAI = false;
+            myColor = color;
+            aiBtn.style.display = 'none';
+            onlineStatusEl.style.display = 'block';
+            onlineStatusEl.style.color = '#2ecc71';
+            onlineStatusEl.textContent = `Connect\u00e9 ! Tu es ${color === RED ? 'Rouge' : 'Jaune'}`;
+            scores = { [RED]: 0, [YELLOW]: 0 };
+            updateScores();
+            init();
+        }
+
+        function leaveOnlineMode() {
+            onlineMode = false;
+            myColor = null;
+            if (conn) { conn.close(); conn = null; }
+            if (peer) { peer.destroy(); peer = null; }
+            aiBtn.style.display = '';
+            onlineStatusEl.style.display = 'none';
+            scores = { [RED]: 0, [YELLOW]: 0 };
+            updateScores();
+            init();
+        }
+
+        // Modal elements
+        const modal = document.getElementById('online-modal');
+        const modalChoice = document.getElementById('modal-choice');
+        const createSection = document.getElementById('create-section');
+        const joinSection = document.getElementById('join-section');
+        const roomCodeDisplay = document.getElementById('room-code-display');
+        const roomInfo = document.getElementById('room-info');
+        const joinInfo = document.getElementById('join-info');
+        const joinCodeInput = document.getElementById('join-code-input');
+
+        function resetModal() {
+            modalChoice.style.display = 'flex';
+            createSection.style.display = 'none';
+            joinSection.style.display = 'none';
+            roomCodeDisplay.style.display = 'none';
+            roomInfo.textContent = '';
+            joinInfo.textContent = '';
+            joinCodeInput.value = '';
+        }
+
+        document.getElementById('online-btn').addEventListener('click', () => {
+            if (onlineMode) {
+                leaveOnlineMode();
+                return;
+            }
+            resetModal();
+            modal.classList.add('visible');
+        });
+
+        document.getElementById('close-modal-btn').addEventListener('click', () => {
+            modal.classList.remove('visible');
+            if (!onlineMode && peer) { peer.destroy(); peer = null; }
+        });
+
+        document.getElementById('create-room-btn').addEventListener('click', () => {
+            modalChoice.style.display = 'none';
+            createSection.style.display = 'block';
+            roomInfo.textContent = 'Connexion au serveur...';
+
+            const roomCode = generateRoomCode();
+            const peerId = 'p4-' + roomCode;
+
+            peer = new Peer(peerId);
+
+            peer.on('open', () => {
+                roomCodeDisplay.textContent = roomCode;
+                roomCodeDisplay.style.display = 'block';
+                roomInfo.textContent = 'En attente d\'un adversaire...';
+            });
+
+            peer.on('connection', (connection) => {
+                setupConnection(connection);
+                modal.classList.remove('visible');
+                enterOnlineMode(RED);
+            });
+
+            peer.on('error', (err) => {
+                roomInfo.textContent = 'Erreur : ' + err.type;
+                roomInfo.style.color = '#e74c3c';
+            });
+        });
+
+        document.getElementById('join-room-btn').addEventListener('click', () => {
+            modalChoice.style.display = 'none';
+            joinSection.style.display = 'block';
+            joinCodeInput.focus();
+        });
+
+        document.getElementById('connect-btn').addEventListener('click', () => {
+            const code = joinCodeInput.value.trim().toUpperCase();
+            if (!code) return;
+
+            joinInfo.textContent = 'Connexion...';
+            joinInfo.style.color = '#aaa';
+
+            peer = new Peer();
+
+            peer.on('open', () => {
+                const connection = peer.connect('p4-' + code);
+
+                connection.on('open', () => {
+                    setupConnection(connection);
+                    modal.classList.remove('visible');
+                    enterOnlineMode(YELLOW);
+                });
+
+                connection.on('error', () => {
+                    joinInfo.textContent = 'Impossible de se connecter.';
+                    joinInfo.style.color = '#e74c3c';
+                });
+            });
+
+            peer.on('error', (err) => {
+                joinInfo.textContent = 'Erreur : partie introuvable ou expir\u00e9e';
+                joinInfo.style.color = '#e74c3c';
+            });
+        });
+
+        joinCodeInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') document.getElementById('connect-btn').click();
+        });
+
+        roomCodeDisplay.addEventListener('click', () => {
+            navigator.clipboard.writeText(roomCodeDisplay.textContent);
+            roomInfo.textContent = 'Code copi\u00e9 !';
+            setTimeout(() => { roomInfo.textContent = 'En attente d\'un adversaire...'; }, 1500);
+        });
+
         // --- Events ---
 
-        document.getElementById('restart-btn').addEventListener('click', init);
+        document.getElementById('restart-btn').addEventListener('click', () => {
+            if (onlineMode && conn) {
+                conn.send({ type: 'restart' });
+            }
+            init();
+        });
 
         aiBtn.addEventListener('click', () => {
             vsAI = !vsAI;
